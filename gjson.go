@@ -319,8 +319,8 @@ func (t Result) Map() map[string]Result {
 
 // Get searches result for the specified path.
 // The result should be a JSON array or object.
-func (t Result) Get(path string) Result {
-	r := Get(t.Raw, path)
+func (t Result) Get(path string, extra ...interface{}) Result {
+	r := Get(t.Raw, path, extra...)
 	if r.Indexes != nil {
 		for i := 0; i < len(r.Indexes); i++ {
 			r.Indexes[i] += t.Index
@@ -1192,7 +1192,7 @@ func parseSquash(json string, i int) (int, string) {
 	return i, json[s:]
 }
 
-func parseObject(c *parseContext, i int, path string) (int, bool) {
+func parseObject(c *parseContext, i int, path string, extra ...interface{}) (int, bool) {
 	var pmatch, kesc, vesc, ok, hit bool
 	var key, val string
 	rp := parseObjectPath(path)
@@ -1291,7 +1291,7 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 				}
 			case '{':
 				if pmatch && !hit {
-					i, hit = parseObject(c, i+1, rp.path)
+					i, hit = parseObject(c, i+1, rp.path, extra...)
 					if hit {
 						return i, true
 					}
@@ -1305,7 +1305,7 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 				}
 			case '[':
 				if pmatch && !hit {
-					i, hit = parseArray(c, i+1, rp.path)
+					i, hit = parseArray(c, i+1, rp.path, extra...)
 					if hit {
 						return i, true
 					}
@@ -1504,7 +1504,7 @@ func queryMatches(rp *arrayPathResult, value Result) bool {
 	}
 	return false
 }
-func parseArray(c *parseContext, i int, path string) (int, bool) {
+func parseArray(c *parseContext, i int, path string, extra ...interface{}) (int, bool) {
 	var pmatch, vesc, ok, hit bool
 	var val string
 	var h int
@@ -1538,7 +1538,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 		parentIndex := tmp.value.Index
 		var res Result
 		if qval.Type == JSON {
-			res = qval.Get(rp.query.path)
+			res = qval.Get(rp.query.path, extra...)
 		} else {
 			if rp.query.path != "" {
 				return false
@@ -1553,7 +1553,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 					c.pipe = right
 					c.piped = true
 				}
-				res = qval.Get(rp.path)
+				res = qval.Get(rp.path, extra...)
 			} else {
 				res = qval
 			}
@@ -1631,7 +1631,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 				}
 			case '{':
 				if pmatch && !hit {
-					i, hit = parseObject(c, i+1, rp.path)
+					i, hit = parseObject(c, i+1, rp.path, extra...)
 					if hit {
 						if rp.alogok {
 							break
@@ -1655,7 +1655,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 				}
 			case '[':
 				if pmatch && !hit {
-					i, hit = parseArray(c, i+1, rp.path)
+					i, hit = parseArray(c, i+1, rp.path, extra...)
 					if hit {
 						if rp.alogok {
 							break
@@ -1739,7 +1739,7 @@ func parseArray(c *parseContext, i int, path string) (int, bool) {
 							if idx < len(c.json) && c.json[idx] != ']' {
 								_, res, ok := parseAny(c.json, idx, true)
 								if ok {
-									res := res.Get(rp.alogkey)
+									res := res.Get(rp.alogkey, extra...)
 									if res.Exists() {
 										if k > 0 {
 											jsons = append(jsons, ',')
@@ -2126,7 +2126,7 @@ type parseContext struct {
 // Invalid json will not panic, but it may return back unexpected results.
 // If you are consuming JSON from an unpredictable source then you may want to
 // use the Valid function first.
-func Get(json, path string) Result {
+func Get(json, path string, extra ...interface{}) Result {
 	if len(path) > 1 {
 		if (path[0] == '@' && !DisableModifiers) || path[0] == '!' {
 			// possible modifier
@@ -2134,14 +2134,14 @@ func Get(json, path string) Result {
 			var npath string
 			var rjson string
 			if path[0] == '@' && !DisableModifiers {
-				npath, rjson, ok = execModifier(json, path)
+				npath, rjson, ok = execModifier(json, path, extra...)
 			} else if path[0] == '!' {
 				npath, rjson, ok = execStatic(json, path)
 			}
 			if ok {
 				path = npath
 				if len(path) > 0 && (path[0] == '|' || path[0] == '.') {
-					res := Get(rjson, path[1:])
+					res := Get(rjson, path[1:], extra...)
 					res.Index = 0
 					res.Indexes = nil
 					return res
@@ -2161,7 +2161,7 @@ func Get(json, path string) Result {
 					b = append(b, kind)
 					var i int
 					for _, sub := range subs {
-						res := Get(json, sub.path)
+						res := Get(json, sub.path, extra...)
 						if res.Exists() {
 							if i > 0 {
 								b = append(b, ',')
@@ -2201,7 +2201,7 @@ func Get(json, path string) Result {
 					res.Raw = string(b)
 					res.Type = JSON
 					if len(path) > 0 {
-						res = res.Get(path[1:])
+						res = res.Get(path[1:], extra...)
 					}
 					res.Index = 0
 					return res
@@ -2213,23 +2213,23 @@ func Get(json, path string) Result {
 	var c = &parseContext{json: json}
 	if len(path) >= 2 && path[0] == '.' && path[1] == '.' {
 		c.lines = true
-		parseArray(c, 0, path[2:])
+		parseArray(c, 0, path[2:], extra...)
 	} else {
 		for ; i < len(c.json); i++ {
 			if c.json[i] == '{' {
 				i++
-				parseObject(c, i, path)
+				parseObject(c, i, path, extra...)
 				break
 			}
 			if c.json[i] == '[' {
 				i++
-				parseArray(c, i, path)
+				parseArray(c, i, path, extra...)
 				break
 			}
 		}
 	}
 	if c.piped {
-		res := c.value.Get(c.pipe)
+		res := c.value.Get(c.pipe, extra...)
 		res.Index = 0
 		return res
 	}
@@ -2239,8 +2239,8 @@ func Get(json, path string) Result {
 
 // GetBytes searches json for the specified path.
 // If working with bytes, this method preferred over Get(string(data), path)
-func GetBytes(json []byte, path string) Result {
-	return getBytes(json, path)
+func GetBytes(json []byte, path string, extra ...interface{}) Result {
+	return getBytes(json, path, extra...)
 }
 
 // runeit returns the rune from the the \uXXXX
@@ -2450,10 +2450,10 @@ func parseAny(json string, i int, hit bool) (int, Result, bool) {
 // GetMany searches json for the multiple paths.
 // The return value is a Result array where the number of items
 // will be equal to the number of input paths.
-func GetMany(json string, path ...string) []Result {
+func GetMany(json string, path []string, extra ...interface{}) []Result {
 	res := make([]Result, len(path))
 	for i, path := range path {
-		res[i] = Get(json, path)
+		res[i] = Get(json, path, extra...)
 	}
 	return res
 }
@@ -2461,10 +2461,10 @@ func GetMany(json string, path ...string) []Result {
 // GetManyBytes searches json for the multiple paths.
 // The return value is a Result array where the number of items
 // will be equal to the number of input paths.
-func GetManyBytes(json []byte, path ...string) []Result {
+func GetManyBytes(json []byte, path []string, extra ...interface{}) []Result {
 	res := make([]Result, len(path))
 	for i, path := range path {
-		res[i] = GetBytes(json, path)
+		res[i] = GetBytes(json, path, extra...)
 	}
 	return res
 }
@@ -2846,7 +2846,7 @@ func execStatic(json, path string) (pathOut, res string, ok bool) {
 
 // execModifier parses the path to find a matching modifier function.
 // The input expects that the path already starts with a '@'
-func execModifier(json, path string) (pathOut, res string, ok bool) {
+func execModifier(json, path string, extra ...interface{}) (pathOut, res string, ok bool) {
 	name := path[1:]
 	var hasArgs bool
 	for i := 1; i < len(path); i++ {
@@ -2898,7 +2898,7 @@ func execModifier(json, path string) (pathOut, res string, ok bool) {
 				pathOut = pathOut[i:]
 			}
 		}
-		return pathOut, fn(json, args), true
+		return pathOut, fn(json, args, extra...), true
 	}
 	return pathOut, res, false
 }
@@ -2915,10 +2915,10 @@ func unwrap(json string) string {
 // DisableModifiers will disable the modifier syntax
 var DisableModifiers = false
 
-var modifiers map[string]func(json, arg string) string
+var modifiers map[string]func(json, arg string, extra ...interface{}) string
 
 func init() {
-	modifiers = map[string]func(json, arg string) string{
+	modifiers = map[string]func(json, arg string, extra ...interface{}) string{
 		"pretty":  modPretty,
 		"ugly":    modUgly,
 		"reverse": modReverse,
@@ -2938,7 +2938,7 @@ func init() {
 // AddModifier binds a custom modifier command to the GJSON syntax.
 // This operation is not thread safe and should be executed prior to
 // using all other gjson function.
-func AddModifier(name string, fn func(json, arg string) string) {
+func AddModifier(name string, fn func(json, arg string, extra ...interface{}) string) {
 	modifiers[name] = fn
 }
 
@@ -2969,7 +2969,7 @@ func cleanWS(s string) string {
 }
 
 // @pretty modifier makes the json look nice.
-func modPretty(json, arg string) string {
+func modPretty(json, arg string, extra ...interface{}) string {
 	if len(arg) > 0 {
 		opts := *pretty.DefaultOptions
 		Parse(arg).ForEach(func(key, value Result) bool {
@@ -2991,17 +2991,17 @@ func modPretty(json, arg string) string {
 }
 
 // @this returns the current element. Can be used to retrieve the root element.
-func modThis(json, arg string) string {
+func modThis(json, arg string, extra ...interface{}) string {
 	return json
 }
 
 // @ugly modifier removes all whitespace.
-func modUgly(json, arg string) string {
+func modUgly(json, arg string, extra ...interface{}) string {
 	return bytesString(pretty.Ugly(stringBytes(json)))
 }
 
 // @reverse reverses array elements or root object members.
-func modReverse(json, arg string) string {
+func modReverse(json, arg string, extra ...interface{}) string {
 	res := Parse(json)
 	if res.IsArray() {
 		var values []Result
@@ -3051,7 +3051,7 @@ func modReverse(json, arg string) string {
 //	[1,[2],[3,4],[5,[6,7]]] -> [1,2,3,4,5,6,7]
 //
 // The original json is returned when the json is not an array.
-func modFlatten(json, arg string) string {
+func modFlatten(json, arg string, extra ...interface{}) string {
 	res := Parse(json)
 	if !res.IsArray() {
 		return json
@@ -3072,7 +3072,7 @@ func modFlatten(json, arg string) string {
 		var raw string
 		if value.IsArray() {
 			if deep {
-				raw = unwrap(modFlatten(value.Raw, arg))
+				raw = unwrap(modFlatten(value.Raw, arg, extra...))
 			} else {
 				raw = unwrap(value.Raw)
 			}
@@ -3096,7 +3096,7 @@ func modFlatten(json, arg string) string {
 // @keys extracts the keys from an object.
 //
 //	{"first":"Tom","last":"Smith"} -> ["first","last"]
-func modKeys(json, arg string) string {
+func modKeys(json, arg string, extra ...interface{}) string {
 	v := Parse(json)
 	if !v.Exists() {
 		return "[]"
@@ -3124,7 +3124,7 @@ func modKeys(json, arg string) string {
 // @values extracts the values from an object.
 //
 //	{"first":"Tom","last":"Smith"} -> ["Tom","Smith"]
-func modValues(json, arg string) string {
+func modValues(json, arg string, extra ...interface{}) string {
 	v := Parse(json)
 	if !v.Exists() {
 		return "[]"
@@ -3160,7 +3160,7 @@ func modValues(json, arg string) string {
 //	[{"first":"Tom","age":37},{"age":41}] -> {"first","Tom","age":41}
 //
 // The original json is returned when the json is not an object.
-func modJoin(json, arg string) string {
+func modJoin(json, arg string, extra ...interface{}) string {
 	res := Parse(json)
 	if !res.IsArray() {
 		return json
@@ -3223,7 +3223,7 @@ func modJoin(json, arg string) string {
 
 // @valid ensures that the json is valid before moving on. An empty string is
 // returned when the json is not valid, otherwise it returns the original json.
-func modValid(json, arg string) string {
+func modValid(json, arg string, extra ...interface{}) string {
 	if !Valid(json) {
 		return ""
 	}
@@ -3233,7 +3233,7 @@ func modValid(json, arg string) string {
 // @fromstr converts a string to json
 //
 //	"{\"id\":1023,\"name\":\"alert\"}" -> {"id":1023,"name":"alert"}
-func modFromStr(json, arg string) string {
+func modFromStr(json, arg string, extra ...interface{}) string {
 	if !Valid(json) {
 		return ""
 	}
@@ -3243,11 +3243,11 @@ func modFromStr(json, arg string) string {
 // @tostr converts a string to json
 //
 //	{"id":1023,"name":"alert"} -> "{\"id\":1023,\"name\":\"alert\"}"
-func modToStr(str, arg string) string {
+func modToStr(str, arg string, extra ...interface{}) string {
 	return string(AppendJSONString(nil, str))
 }
 
-func modGroup(json, arg string) string {
+func modGroup(json, arg string, extra ...interface{}) string {
 	res := Parse(json)
 	if !res.IsObject() {
 		return ""
@@ -3298,11 +3298,11 @@ type sliceHeader struct {
 // getBytes casts the input json bytes to a string and safely returns the
 // results as uniquely allocated data. This operation is intended to minimize
 // copies and allocations for the large json string->[]byte.
-func getBytes(json []byte, path string) Result {
+func getBytes(json []byte, path string, extra ...interface{}) Result {
 	var result Result
 	if json != nil {
 		// unsafe cast to string
-		result = Get(*(*string)(unsafe.Pointer(&json)), path)
+		result = Get(*(*string)(unsafe.Pointer(&json)), path, extra...)
 		// safely get the string headers
 		rawhi := *(*stringHeader)(unsafe.Pointer(&result.Raw))
 		strhi := *(*stringHeader)(unsafe.Pointer(&result.Str))
@@ -3581,21 +3581,21 @@ func Escape(comp string) string {
 	return comp
 }
 
-func parseRecursiveDescent(all []Result, parent Result, path string) []Result {
-	if res := parent.Get(path); res.Exists() {
+func parseRecursiveDescent(all []Result, parent Result, path string, extra ...interface{}) []Result {
+	if res := parent.Get(path, extra...); res.Exists() {
 		all = append(all, res)
 	}
 	if parent.IsArray() || parent.IsObject() {
 		parent.ForEach(func(_, val Result) bool {
-			all = parseRecursiveDescent(all, val, path)
+			all = parseRecursiveDescent(all, val, path, extra...)
 			return true
 		})
 	}
 	return all
 }
 
-func modDig(json, arg string) string {
-	all := parseRecursiveDescent(nil, Parse(json), arg)
+func modDig(json, arg string, extra ...interface{}) string {
+	all := parseRecursiveDescent(nil, Parse(json), arg, extra...)
 	var out []byte
 	out = append(out, '[')
 	for i, res := range all {

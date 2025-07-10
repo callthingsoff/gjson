@@ -229,7 +229,7 @@ func TestManyVariousPathCounts(t *testing.T) {
 				gpaths = append(gpaths, fmt.Sprintf("not%d", i))
 			}
 		}
-		results := GetMany(json, gpaths...)
+		results := GetMany(json, gpaths)
 		for i := 0; i < len(paths); i++ {
 			if results[i].String() != expects[i] {
 				t.Fatalf("expected '%v', got '%v'", expects[i],
@@ -250,7 +250,7 @@ func TestManyRecursion(t *testing.T) {
 		json += `}`
 	}
 	path = path[1:]
-	assert(t, GetMany(json, path)[0].String() == "b")
+	assert(t, GetMany(json, []string{path})[0].String() == "b")
 }
 func TestByteSafety(t *testing.T) {
 	jsonb := []byte(`{"name":"Janet","age":38}`)
@@ -845,7 +845,7 @@ func TestManyBasic(t *testing.T) {
 	testMany := func(shouldFallback bool, expect string, paths ...string) {
 		results := GetManyBytes(
 			[]byte(manyJSON),
-			paths...,
+			paths,
 		)
 		if len(results) != len(paths) {
 			t.Fatalf("expected %v, got %v", len(paths), len(results))
@@ -889,9 +889,9 @@ func testManyAny(t *testing.T, json string, paths, expected []string,
 		} else if i == 1 {
 			which = "GetMany"
 			if bytes {
-				result = GetManyBytes([]byte(json), paths...)
+				result = GetManyBytes([]byte(json), paths)
 			} else {
-				result = GetMany(json, paths...)
+				result = GetMany(json, paths)
 			}
 		}
 		for j := 0; j < len(expected); j++ {
@@ -960,7 +960,7 @@ func TestRandomMany(t *testing.T) {
 			}
 			paths[i] = string(b)
 		}
-		GetMany(lstr, paths...)
+		GetMany(lstr, paths)
 	}
 }
 
@@ -1131,7 +1131,7 @@ func TestGetMany47(t *testing.T) {
 		`{"myfoo": [605]}}`
 	paths := []string{"foo.myfoo", "bar.id", "bar.mybar", "bar.mybarx"}
 	expected := []string{"[605]", "99", "my mybar", ""}
-	results := GetMany(json, paths...)
+	results := GetMany(json, paths)
 	if len(expected) != len(results) {
 		t.Fatalf("expected %v, got %v", len(expected), len(results))
 	}
@@ -1147,7 +1147,7 @@ func TestGetMany48(t *testing.T) {
 	json := `{"bar": {"id": 99, "xyz": "my xyz"}, "foo": {"myfoo": [605]}}`
 	paths := []string{"foo.myfoo", "bar.id", "bar.xyz", "bar.abc"}
 	expected := []string{"[605]", "99", "my xyz", ""}
-	results := GetMany(json, paths...)
+	results := GetMany(json, paths)
 	if len(expected) != len(results) {
 		t.Fatalf("expected %v, got %v", len(expected), len(results))
 	}
@@ -1190,17 +1190,17 @@ func TestNullArray(t *testing.T) {
 func TestIssue54(t *testing.T) {
 	var r []Result
 	json := `{"MarketName":null,"Nounce":6115}`
-	r = GetMany(json, "Nounce", "Buys", "Sells", "Fills")
+	r = GetMany(json, []string{"Nounce", "Buys", "Sells", "Fills"})
 	if strings.Replace(fmt.Sprintf("%v", r), " ", "", -1) != "[6115]" {
 		t.Fatalf("expected '%v', got '%v'", "[6115]",
 			strings.Replace(fmt.Sprintf("%v", r), " ", "", -1))
 	}
-	r = GetMany(json, "Nounce", "Buys", "Sells")
+	r = GetMany(json, []string{"Nounce", "Buys", "Sells"})
 	if strings.Replace(fmt.Sprintf("%v", r), " ", "", -1) != "[6115]" {
 		t.Fatalf("expected '%v', got '%v'", "[6115]",
 			strings.Replace(fmt.Sprintf("%v", r), " ", "", -1))
 	}
-	r = GetMany(json, "Nounce")
+	r = GetMany(json, []string{"Nounce"})
 	if strings.Replace(fmt.Sprintf("%v", r), " ", "", -1) != "[6115]" {
 		t.Fatalf("expected '%v', got '%v'", "[6115]",
 			strings.Replace(fmt.Sprintf("%v", r), " ", "", -1))
@@ -1209,7 +1209,7 @@ func TestIssue54(t *testing.T) {
 
 func TestIssue55(t *testing.T) {
 	json := `{"one": {"two": 2, "three": 3}, "four": 4, "five": 5}`
-	results := GetMany(json, "four", "five", "one.two", "one.six")
+	results := GetMany(json, []string{"four", "five", "one.two", "one.six"})
 	expected := []string{"4", "5", "2", ""}
 	for i, r := range results {
 		if r.String() != expected[i] {
@@ -1400,7 +1400,7 @@ func TestModifier(t *testing.T) {
 	if res != "4" {
 		t.Fatalf("expected '%v', got '%v'", "4", res)
 	}
-	AddModifier("case", func(json, arg string) string {
+	AddModifier("case", func(json, arg string, extra ...interface{}) string {
 		if arg == "upper" {
 			return strings.ToUpper(json)
 		}
@@ -1869,7 +1869,7 @@ func TestSingleModifier(t *testing.T) {
 }
 
 func TestModifiersInMultipaths(t *testing.T) {
-	AddModifier("case", func(json, arg string) string {
+	AddModifier("case", func(json, arg string, extra ...interface{}) string {
 		if arg == "upper" {
 			return strings.ToUpper(json)
 		}
@@ -1906,7 +1906,7 @@ func TestIssue141(t *testing.T) {
 
 func TestChainedModifierStringArgs(t *testing.T) {
 	// issue #143
-	AddModifier("push", func(json, arg string) string {
+	AddModifier("push", func(json, arg string, extra ...interface{}) string {
 		json = strings.TrimSpace(json)
 		if len(json) < 2 || !Parse(json).IsArray() {
 			return json
@@ -2216,7 +2216,7 @@ func TestModifierDoubleQuotes(t *testing.T) {
 		  }
 		]
 	  }`
-	AddModifier("string", func(josn, arg string) string {
+	AddModifier("string", func(josn, arg string, extra ...interface{}) string {
 		return strconv.Quote(josn)
 	})
 
@@ -2616,7 +2616,7 @@ func TestIndexAtSymbol(t *testing.T) {
 func TestDeepModifierWithOptions(t *testing.T) {
 	rawJson := `{"x":[{"y":[{"z":{"b":1, "c": 2, "a": 3}}]}]}`
 	jsonPathExpr := `x.#.y.#.z.@pretty:{"sortKeys":true}`
-	results := GetManyBytes([]byte(rawJson), jsonPathExpr)
+	results := GetManyBytes([]byte(rawJson), []string{jsonPathExpr})
 	assert(t, len(results) == 1)
 	actual := results[0].Raw
 	expected := `[[{
@@ -2726,4 +2726,25 @@ func TestEscape(t *testing.T) {
 	assert(t, user.Get(Escape("first.name")).String() == "Janet")
 	assert(t, user.Get(Escape("last.name")).String() == "Prichard")
 	assert(t, user.Get("first.name").String() == "")
+}
+
+func TestModifierWithExtra(t *testing.T) {
+	json := `{"other":{"hello":"world"},"arr":[1,2,3,4,5,6]}`
+	AddModifier("case", func(json, arg string, extra ...interface{}) string {
+		if len(extra) != 2 || extra[0] != "key1" || extra[1] != "value1" {
+			t.Fatal("extra are not matched")
+		}
+		if arg == "upper" {
+			return strings.ToUpper(json)
+		}
+		if arg == "lower" {
+			return strings.ToLower(json)
+		}
+
+		return json
+	})
+	res := Get(json, "other|@case:upper", "key1", "value1").String()
+	if res != `{"HELLO":"WORLD"}` {
+		t.Fatalf("expected '%v', got '%v'", `{"HELLO":"WORLD"}`, res)
+	}
 }
