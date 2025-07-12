@@ -614,7 +614,7 @@ func TestBasic5(t *testing.T) {
 		t.Fatal("expecting '"+`{"what is a wren?":"a bird"}`+"'", "got",
 			token.String())
 	}
-	_ = token.Value().(map[string]interface{})
+	_ = token.Value().(map[string]any)
 
 	if get(basicJSON, "").Value() != nil {
 		t.Fatal("should be nil")
@@ -622,8 +622,8 @@ func TestBasic5(t *testing.T) {
 
 	get(basicJSON, "vals.hello")
 
-	type msi = map[string]interface{}
-	type fi = []interface{}
+	type msi = map[string]any
+	type fi = []any
 	mm := Parse(basicJSON).Value().(msi)
 	fn := mm["loggy"].(msi)["programmers"].(fi)[1].(msi)["firstName"].(string)
 	if fn != "Jason" {
@@ -776,8 +776,8 @@ var exampleJSON = `{
 }`
 
 func TestUnmarshalMap(t *testing.T) {
-	var m1 = Parse(exampleJSON).Value().(map[string]interface{})
-	var m2 map[string]interface{}
+	var m1 = Parse(exampleJSON).Value().(map[string]any)
+	var m2 map[string]any
 	if err := json.Unmarshal([]byte(exampleJSON), &m2); err != nil {
 		t.Fatal(err)
 	}
@@ -1400,7 +1400,7 @@ func TestModifier(t *testing.T) {
 	if res != "4" {
 		t.Fatalf("expected '%v', got '%v'", "4", res)
 	}
-	AddModifier("case", func(json, arg string, extra ...interface{}) string {
+	AddModifier("case", func(json, arg string, extra ...any) string {
 		if arg == "upper" {
 			return strings.ToUpper(json)
 		}
@@ -1869,7 +1869,7 @@ func TestSingleModifier(t *testing.T) {
 }
 
 func TestModifiersInMultipaths(t *testing.T) {
-	AddModifier("case", func(json, arg string, extra ...interface{}) string {
+	AddModifier("case", func(json, arg string, extra ...any) string {
 		if arg == "upper" {
 			return strings.ToUpper(json)
 		}
@@ -1906,7 +1906,7 @@ func TestIssue141(t *testing.T) {
 
 func TestChainedModifierStringArgs(t *testing.T) {
 	// issue #143
-	AddModifier("push", func(json, arg string, extra ...interface{}) string {
+	AddModifier("push", func(json, arg string, extra ...any) string {
 		json = strings.TrimSpace(json)
 		if len(json) < 2 || !Parse(json).IsArray() {
 			return json
@@ -2216,7 +2216,7 @@ func TestModifierDoubleQuotes(t *testing.T) {
 		  }
 		]
 	  }`
-	AddModifier("string", func(josn, arg string, extra ...interface{}) string {
+	AddModifier("string", func(josn, arg string, extra ...any) string {
 		return strconv.Quote(josn)
 	})
 
@@ -2549,7 +2549,7 @@ func TestGroup(t *testing.T) {
 	assert(t, res == `["123"]`)
 }
 
-func goJSONMarshal(i interface{}) ([]byte, error) {
+func goJSONMarshal(i any) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
 	encoder.SetEscapeHTML(!DisableEscapeHTML)
@@ -2730,7 +2730,7 @@ func TestEscape(t *testing.T) {
 
 func TestModifierWithExtra(t *testing.T) {
 	json := `{"other":{"hello":"world"},"arr":[1,2,3,4,5,6]}`
-	AddModifier("case", func(json, arg string, extra ...interface{}) string {
+	AddModifier("case", func(json, arg string, extra ...any) string {
 		if len(extra) != 2 || extra[0] != "key1" || extra[1] != "value1" {
 			t.Fatal("extra are not matched")
 		}

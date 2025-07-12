@@ -1,6 +1,6 @@
 module github.com/callthingsoff/gjson
 
-go 1.12
+go 1.18
 
 require (
 	github.com/tidwall/match v1.1.1

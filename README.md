@@ -143,7 +143,7 @@ There are a variety of handy functions that work on a result:
 
 ```go
 result.Exists() bool
-result.Value() interface{}
+result.Value() any
 result.Int() int64
 result.Uint() uint64
 result.Float() float64
@@ -157,15 +157,15 @@ result.ForEach(iterator func(key, value Result) bool)
 result.Less(token Result, caseSensitive bool) bool
 ```
 
-The `result.Value()` function returns an `interface{}` which requires type assertion and is one of the following Go types:
+The `result.Value()` function returns an `any` which requires type assertion and is one of the following Go types:
 
 ```go
 boolean >> bool
 number  >> float64
 string  >> string
 null    >> nil
-array   >> []interface{}
-object  >> map[string]interface{}
+array   >> []any
+object  >> map[string]any
 ```
 
 The `result.Array()` function returns back an array of values.
@@ -396,10 +396,10 @@ value := gjson.Get(json, "name.last")
 
 ## Unmarshal to a map
 
-To unmarshal to a `map[string]interface{}`:
+To unmarshal to a `map[string]any`:
 
 ```go
-m, ok := gjson.Parse(json).Value().(map[string]interface{})
+m, ok := gjson.Parse(json).Value().(map[string]any)
 if !ok {
 	// not a map
 }

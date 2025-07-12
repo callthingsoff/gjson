@@ -319,7 +319,7 @@ func (t Result) Map() map[string]Result {
 
 // Get searches result for the specified path.
 // The result should be a JSON array or object.
-func (t Result) Get(path string, extra ...interface{}) Result {
+func (t Result) Get(path string, extra ...any) Result {
 	r := Get(t.Raw, path, extra...)
 	if r.Indexes != nil {
 		for i := 0; i < len(r.Indexes); i++ {
@@ -333,9 +333,9 @@ func (t Result) Get(path string, extra ...interface{}) Result {
 
 type arrayOrMapResult struct {
 	a  []Result
-	ai []interface{}
+	ai []any
 	o  map[string]Result
-	oi map[string]interface{}
+	oi map[string]any
 	vc byte
 }
 
@@ -370,13 +370,13 @@ func (t Result) arrayOrMap(vc byte, valueize bool) (r arrayOrMapResult) {
 	}
 	if r.vc == '{' {
 		if valueize {
-			r.oi = make(map[string]interface{})
+			r.oi = make(map[string]any)
 		} else {
 			r.o = make(map[string]Result)
 		}
 	} else {
 		if valueize {
-			r.ai = make([]interface{}, 0)
+			r.ai = make([]any, 0)
 		} else {
 			r.a = make([]Result, 0)
 		}
@@ -665,9 +665,9 @@ func (t Result) Exists() bool {
 //	Number, for JSON numbers
 //	string, for JSON string literals
 //	nil, for JSON null
-//	map[string]interface{}, for JSON objects
-//	[]interface{}, for JSON arrays
-func (t Result) Value() interface{} {
+//	map[string]any, for JSON objects
+//	[]any, for JSON arrays
+func (t Result) Value() any {
 	if t.Type == String {
 		return t.Str
 	}
@@ -1192,7 +1192,7 @@ func parseSquash(json string, i int) (int, string) {
 	return i, json[s:]
 }
 
-func parseObject(c *parseContext, i int, path string, extra ...interface{}) (int, bool) {
+func parseObject(c *parseContext, i int, path string, extra ...any) (int, bool) {
 	var pmatch, kesc, vesc, ok, hit bool
 	var key, val string
 	rp := parseObjectPath(path)
@@ -1504,7 +1504,7 @@ func queryMatches(rp *arrayPathResult, value Result) bool {
 	}
 	return false
 }
-func parseArray(c *parseContext, i int, path string, extra ...interface{}) (int, bool) {
+func parseArray(c *parseContext, i int, path string, extra ...any) (int, bool) {
 	var pmatch, vesc, ok, hit bool
 	var val string
 	var h int
@@ -2126,7 +2126,7 @@ type parseContext struct {
 // Invalid json will not panic, but it may return back unexpected results.
 // If you are consuming JSON from an unpredictable source then you may want to
 // use the Valid function first.
-func Get(json, path string, extra ...interface{}) Result {
+func Get(json, path string, extra ...any) Result {
 	if len(path) > 1 {
 		if (path[0] == '@' && !DisableModifiers) || path[0] == '!' {
 			// possible modifier
@@ -2239,7 +2239,7 @@ func Get(json, path string, extra ...interface{}) Result {
 
 // GetBytes searches json for the specified path.
 // If working with bytes, this method preferred over Get(string(data), path)
-func GetBytes(json []byte, path string, extra ...interface{}) Result {
+func GetBytes(json []byte, path string, extra ...any) Result {
 	return getBytes(json, path, extra...)
 }
 
@@ -2450,7 +2450,7 @@ func parseAny(json string, i int, hit bool) (int, Result, bool) {
 // GetMany searches json for the multiple paths.
 // The return value is a Result array where the number of items
 // will be equal to the number of input paths.
-func GetMany(json string, path []string, extra ...interface{}) []Result {
+func GetMany(json string, path []string, extra ...any) []Result {
 	res := make([]Result, len(path))
 	for i, path := range path {
 		res[i] = Get(json, path, extra...)
@@ -2461,7 +2461,7 @@ func GetMany(json string, path []string, extra ...interface{}) []Result {
 // GetManyBytes searches json for the multiple paths.
 // The return value is a Result array where the number of items
 // will be equal to the number of input paths.
-func GetManyBytes(json []byte, path []string, extra ...interface{}) []Result {
+func GetManyBytes(json []byte, path []string, extra ...any) []Result {
 	res := make([]Result, len(path))
 	for i, path := range path {
 		res[i] = GetBytes(json, path, extra...)
@@ -2846,7 +2846,7 @@ func execStatic(json, path string) (pathOut, res string, ok bool) {
 
 // execModifier parses the path to find a matching modifier function.
 // The input expects that the path already starts with a '@'
-func execModifier(json, path string, extra ...interface{}) (pathOut, res string, ok bool) {
+func execModifier(json, path string, extra ...any) (pathOut, res string, ok bool) {
 	name := path[1:]
 	var hasArgs bool
 	for i := 1; i < len(path); i++ {
@@ -2915,10 +2915,10 @@ func unwrap(json string) string {
 // DisableModifiers will disable the modifier syntax
 var DisableModifiers = false
 
-var modifiers map[string]func(json, arg string, extra ...interface{}) string
+var modifiers map[string]func(json, arg string, extra ...any) string
 
 func init() {
-	modifiers = map[string]func(json, arg string, extra ...interface{}) string{
+	modifiers = map[string]func(json, arg string, extra ...any) string{
 		"pretty":  modPretty,
 		"ugly":    modUgly,
 		"reverse": modReverse,
@@ -2938,7 +2938,7 @@ func init() {
 // AddModifier binds a custom modifier command to the GJSON syntax.
 // This operation is not thread safe and should be executed prior to
 // using all other gjson function.
-func AddModifier(name string, fn func(json, arg string, extra ...interface{}) string) {
+func AddModifier(name string, fn func(json, arg string, extra ...any) string) {
 	modifiers[name] = fn
 }
 
@@ -2969,7 +2969,7 @@ func cleanWS(s string) string {
 }
 
 // @pretty modifier makes the json look nice.
-func modPretty(json, arg string, extra ...interface{}) string {
+func modPretty(json, arg string, extra ...any) string {
 	if len(arg) > 0 {
 		opts := *pretty.DefaultOptions
 		Parse(arg).ForEach(func(key, value Result) bool {
@@ -2991,17 +2991,17 @@ func modPretty(json, arg string, extra ...interface{}) string {
 }
 
 // @this returns the current element. Can be used to retrieve the root element.
-func modThis(json, arg string, extra ...interface{}) string {
+func modThis(json, arg string, extra ...any) string {
 	return json
 }
 
 // @ugly modifier removes all whitespace.
-func modUgly(json, arg string, extra ...interface{}) string {
+func modUgly(json, arg string, extra ...any) string {
 	return bytesString(pretty.Ugly(stringBytes(json)))
 }
 
 // @reverse reverses array elements or root object members.
-func modReverse(json, arg string, extra ...interface{}) string {
+func modReverse(json, arg string, extra ...any) string {
 	res := Parse(json)
 	if res.IsArray() {
 		var values []Result
@@ -3051,7 +3051,7 @@ func modReverse(json, arg string, extra ...interface{}) string {
 //	[1,[2],[3,4],[5,[6,7]]] -> [1,2,3,4,5,6,7]
 //
 // The original json is returned when the json is not an array.
-func modFlatten(json, arg string, extra ...interface{}) string {
+func modFlatten(json, arg string, extra ...any) string {
 	res := Parse(json)
 	if !res.IsArray() {
 		return json
@@ -3096,7 +3096,7 @@ func modFlatten(json, arg string, extra ...interface{}) string {
 // @keys extracts the keys from an object.
 //
 //	{"first":"Tom","last":"Smith"} -> ["first","last"]
-func modKeys(json, arg string, extra ...interface{}) string {
+func modKeys(json, arg string, extra ...any) string {
 	v := Parse(json)
 	if !v.Exists() {
 		return "[]"
@@ -3124,7 +3124,7 @@ func modKeys(json, arg string, extra ...interface{}) string {
 // @values extracts the values from an object.
 //
 //	{"first":"Tom","last":"Smith"} -> ["Tom","Smith"]
-func modValues(json, arg string, extra ...interface{}) string {
+func modValues(json, arg string, extra ...any) string {
 	v := Parse(json)
 	if !v.Exists() {
 		return "[]"
@@ -3160,7 +3160,7 @@ func modValues(json, arg string, extra ...interface{}) string {
 //	[{"first":"Tom","age":37},{"age":41}] -> {"first","Tom","age":41}
 //
 // The original json is returned when the json is not an object.
-func modJoin(json, arg string, extra ...interface{}) string {
+func modJoin(json, arg string, extra ...any) string {
 	res := Parse(json)
 	if !res.IsArray() {
 		return json
@@ -3223,7 +3223,7 @@ func modJoin(json, arg string, extra ...interface{}) string {
 
 // @valid ensures that the json is valid before moving on. An empty string is
 // returned when the json is not valid, otherwise it returns the original json.
-func modValid(json, arg string, extra ...interface{}) string {
+func modValid(json, arg string, extra ...any) string {
 	if !Valid(json) {
 		return ""
 	}
@@ -3233,7 +3233,7 @@ func modValid(json, arg string, extra ...interface{}) string {
 // @fromstr converts a string to json
 //
 //	"{\"id\":1023,\"name\":\"alert\"}" -> {"id":1023,"name":"alert"}
-func modFromStr(json, arg string, extra ...interface{}) string {
+func modFromStr(json, arg string, extra ...any) string {
 	if !Valid(json) {
 		return ""
 	}
@@ -3243,11 +3243,11 @@ func modFromStr(json, arg string, extra ...interface{}) string {
 // @tostr converts a string to json
 //
 //	{"id":1023,"name":"alert"} -> "{\"id\":1023,\"name\":\"alert\"}"
-func modToStr(str, arg string, extra ...interface{}) string {
+func modToStr(str, arg string, extra ...any) string {
 	return string(AppendJSONString(nil, str))
 }
 
-func modGroup(json, arg string, extra ...interface{}) string {
+func modGroup(json, arg string, extra ...any) string {
 	res := Parse(json)
 	if !res.IsObject() {
 		return ""
@@ -3298,7 +3298,7 @@ type sliceHeader struct {
 // getBytes casts the input json bytes to a string and safely returns the
 // results as uniquely allocated data. This operation is intended to minimize
 // copies and allocations for the large json string->[]byte.
-func getBytes(json []byte, path string, extra ...interface{}) Result {
+func getBytes(json []byte, path string, extra ...any) Result {
 	var result Result
 	if json != nil {
 		// unsafe cast to string
@@ -3581,7 +3581,7 @@ func Escape(comp string) string {
 	return comp
 }
 
-func parseRecursiveDescent(all []Result, parent Result, path string, extra ...interface{}) []Result {
+func parseRecursiveDescent(all []Result, parent Result, path string, extra ...any) []Result {
 	if res := parent.Get(path, extra...); res.Exists() {
 		all = append(all, res)
 	}
@@ -3594,7 +3594,7 @@ func parseRecursiveDescent(all []Result, parent Result, path string, extra ...in
 	return all
 }
 
-func modDig(json, arg string, extra ...interface{}) string {
+func modDig(json, arg string, extra ...any) string {
 	all := parseRecursiveDescent(nil, Parse(json), arg, extra...)
 	var out []byte
 	out = append(out, '[')
